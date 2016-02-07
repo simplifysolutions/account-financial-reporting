@@ -117,6 +117,7 @@ class PartnersOpenInvoicesWebkit(report_sxw.rml_parse,
         date_until = self._get_form_param('until_date', data)
         chart_account = self._get_chart_account_id_br(data)
         group_by_currency = self._get_form_param('group_by_currency', data)
+        aging_method = self._get_form_param('aging_method', data)
 
         if main_filter == 'filter_no' and fiscalyear:
             start_period = self.get_first_fiscalyear_period(fiscalyear)
@@ -144,7 +145,7 @@ class PartnersOpenInvoicesWebkit(report_sxw.rml_parse,
             stop = stop_period
         ledger_lines_memoizer = self._compute_open_transactions_lines(
             account_ids, main_filter, target_move, start, stop, date_until,
-            partner_filter=partner_ids)
+            partner_filter=partner_ids, aging_method=aging_method)
         objects = []
         for account in self.pool.get('account.account').browse(
                 self.cursor, self.uid, account_ids, self.localcontext):
@@ -185,7 +186,8 @@ class PartnersOpenInvoicesWebkit(report_sxw.rml_parse,
     def _compute_open_transactions_lines(self, accounts_ids, main_filter,
                                          target_move, start, stop,
                                          date_until=False,
-                                         partner_filter=False):
+                                         partner_filter=False,
+                                         aging_method=False):
         res = defaultdict(dict)
 
         # we check if until date and date stop have the same value
@@ -220,7 +222,8 @@ class PartnersOpenInvoicesWebkit(report_sxw.rml_parse,
             # We get the move line ids of the account
             move_line_ids_per_partner = self.get_partners_move_lines_ids(
                 account_id, main_filter, start, stop, target_move,
-                exclude_reconcile=True, partner_filter=partner_filter)
+                exclude_reconcile=True, partner_filter=partner_filter,
+                aging_method=aging_method)
 
             if not initial_move_lines_ids_per_partner \
                     and not move_line_ids_per_partner:
