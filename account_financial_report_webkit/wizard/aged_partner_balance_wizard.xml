@@ -19,7 +19,8 @@
             <attribute name="colspan">4</attribute>
           </field>
           <field name="chart_account_id" position='after'>
-            <field name="detailed_by_invoice" colspan="4"/>
+            <field name="detailed_by_invoice" colspan="2"/>
+            <field name="use_currency" colspan="2"/>
           </field>
           <xpath expr="//field[@name='target_move']" position="after">
             <newline/>

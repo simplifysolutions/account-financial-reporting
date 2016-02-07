@@ -190,6 +190,7 @@ class AccountAgedTrialBalanceWebkit(PartnersOpenInvoicesWebkit):
         partner_aged_lines = dict.fromkeys(RANGES, 0.0)
         reconcile_lookup = self.get_reconcile_count_lookup(lines_to_age)
         res_by_partner['aged_lines'] = partner_aged_lines
+        account_obj = self.pool['account.account']
 
         for line in lines_to_age:
             compute_method = self.get_compute_method(reconcile_lookup,
@@ -198,7 +199,13 @@ class AccountAgedTrialBalanceWebkit(PartnersOpenInvoicesWebkit):
                                                      aging_method)
             delay = compute_method(line, end_date, ledger_lines)
             classification = self.classify_line(partner_id, delay)
-            amount = line['debit'] - line['credit']
+            account = account_obj.browse(self.cr, self.uid, line['account_id'])
+            if data['form'].get('use_currency', False) and \
+                    (account.currency_id.id and
+                            account.currency_id.id != account.company_id.currency_id.id):
+                amount = line['amount_currency']
+            else:
+                amount = line['debit'] - line['credit']
             partner_aged_lines[classification] += amount
 
             # Populate the aged_lines_by_invoice dictionary if the option has

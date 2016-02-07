@@ -32,6 +32,7 @@ class AccountAgedTrialBalance(orm.TransientModel):
     _description = "Aged partner balanced"
 
     _columns = {
+        'use_currency':fields.boolean('Use Account Currency'),
         'detailed_by_invoice': fields.boolean(
             "Detailed by Invoice",
             help="Provide an aged partner balance report with invoice "
@@ -56,7 +57,8 @@ class AccountAgedTrialBalance(orm.TransientModel):
         data['ids'] = [data['form']['chart_account_id']]
         vals = self.read(cr, uid, ids,
                          ['detailed_by_invoice',
-                          'aging_method'],
+                          'aging_method',
+                          'use_currency'],
                          context=context)[0]
         data['form'].update(vals)
         return data
