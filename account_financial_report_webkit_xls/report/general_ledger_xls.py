@@ -233,7 +233,6 @@ class general_ledger_xls(report_xls):
                                for x in range(7)]
                     c_specs += [
                         ('init_bal', 1, 0, 'text', _('Initial Balance')),
-                        ('counterpart', 1, 0, 'text', None),
                         ('debit', 1, 0, 'number', cumul_debit,
                          None, c_init_cell_style_decimal),
                         ('credit', 1, 0, 'number', cumul_credit,
