@@ -40,13 +40,20 @@ class CommonPartnersReportHeaderWebkit(CommonReportHeaderWebkit):
     def get_partners_move_lines_ids(self, account_id, main_filter, start, stop,
                                     target_move,
                                     exclude_reconcile=False,
-                                    partner_filter=False):
+                                    partner_filter=False,
+                                    **args):
         filter_from = False
         if main_filter in ('filter_period', 'filter_no'):
             filter_from = 'period'
         elif main_filter == 'filter_date':
             filter_from = 'date'
-        if filter_from:
+        if args.get('aging_method', False) == 'due_date':
+            return self._get_partners_move_line_ids(
+                filter_from, account_id, start, stop, target_move,
+                exclude_reconcile=exclude_reconcile,
+                partner_filter=partner_filter,
+                aging_method=args['aging_method'])
+        elif filter_from:
             return self._get_partners_move_line_ids(
                 filter_from, account_id, start, stop, target_move,
                 exclude_reconcile=exclude_reconcile,
@@ -102,7 +109,7 @@ class CommonPartnersReportHeaderWebkit(CommonReportHeaderWebkit):
         return periods
 
     def _get_query_params_from_periods(self, period_start, period_stop,
-                                       mode='exclude_opening'):
+                                       mode='exclude_opening', **args):
         """
         Build the part of the sql "where clause" which filters on the selected
         periods.
@@ -117,6 +124,7 @@ class CommonPartnersReportHeaderWebkit(CommonReportHeaderWebkit):
         if not periods:
             return []
 
+        mode = args.get('mode', 'exclude_opening')
         if mode != 'include_opening':
             periods = self.exclude_opening_periods(periods)
 
@@ -146,10 +154,19 @@ class CommonPartnersReportHeaderWebkit(CommonReportHeaderWebkit):
                          'date_start': date_start,
                          'date_stop': date_stop}
 
-        sql_conditions = "  AND account_move_line.period_id not \
+        if args.get('aging_method', False) == 'due_date':
+            sql_conditions = "  AND account_move_line.period_id not \
                                                             in %(period_ids)s \
-                            AND account_move_line.date between \
-                                date(%(date_start)s) and date((%(date_stop)s))"
+                                AND ((account_move_line.date_maturity IS NULL \
+                                    AND account_move_line.date between \
+                                        date(%(date_start)s) and date(%(date_stop)s)) \
+                                    OR account_move_line.date_maturity between \
+                                        date(%(date_start)s) and date(%(date_stop)s))"
+        else:
+            sql_conditions = "  AND account_move_line.period_id not \
+                                                                in %(period_ids)s \
+                                AND account_move_line.date between \
+                                    date(%(date_start)s) and date((%(date_stop)s))"
 
         return sql_conditions, search_params
 
@@ -157,7 +174,8 @@ class CommonPartnersReportHeaderWebkit(CommonReportHeaderWebkit):
                                     target_move,
                                     opening_mode='exclude_opening',
                                     exclude_reconcile=False,
-                                    partner_filter=None):
+                                    partner_filter=None,
+                                    **args):
         """
 
         :param str filter_from: "periods" or "dates"
@@ -181,7 +199,8 @@ class CommonPartnersReportHeaderWebkit(CommonReportHeaderWebkit):
                     " AND account_move_line.state = 'valid' "
 
         method = getattr(self, '_get_query_params_from_' + filter_from + 's')
-        sql_conditions, search_params = method(start, stop)
+        sql_conditions, search_params = method(start, stop,
+                            aging_method=args.get('aging_method', False))
 
         sql_where += sql_conditions
 
