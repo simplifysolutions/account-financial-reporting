@@ -30,10 +30,78 @@ from openerp.tools.translate import _
 # import logging
 # _logger = logging.getLogger(__name__)
 
+class GeneralLedgerWebkitSupplier(GeneralLedgerWebkit):
+    """ Extends General Ledger Parser to add the supplier invoice
+    number in the move lines """
+
+    def _get_move_line_datas(self, move_line_ids,
+                             order='per.special DESC, l.date ASC, \
+                             per.date_start ASC, m.name ASC'):
+        # Possible bang if move_line_ids is too long
+        # We can not slice here as we have to do the sort.
+        # If slice has to be done it means that we have to reorder in python
+        # after all is finished. That quite crapy...
+        # We have a defective desing here (mea culpa) that should be fixed
+        #
+        # TODO improve that by making a better domain or if not possible
+        # by using python sort
+        if not move_line_ids:
+            return []
+        if not isinstance(move_line_ids, list):
+            move_line_ids = [move_line_ids]
+        monster = """
+SELECT l.id AS id,
+            l.date AS ldate,
+            j.code AS jcode ,
+            j.type AS jtype,
+            l.currency_id,
+            l.account_id,
+            l.amount_currency,
+            l.ref AS lref,
+            l.name AS lname,
+            COALESCE(l.debit, 0.0) - COALESCE(l.credit, 0.0) AS balance,
+            l.debit,
+            l.credit,
+            l.period_id AS lperiod_id,
+            per.code as period_code,
+            per.special AS peropen,
+            l.partner_id AS lpartner_id,
+            p.name AS partner_name,
+            m.name AS move_name,
+            COALESCE(partialrec.name, fullrec.name, '') AS rec_name,
+            COALESCE(partialrec.id, fullrec.id, NULL) AS rec_id,
+            m.id AS move_id,
+            c.name AS currency_code,
+            i.id AS invoice_id,
+            i.type AS invoice_type,
+            i.number AS invoice_number,
+            i.supplier_invoice_number AS supplier_invoice_number,
+            l.date_maturity
+FROM account_move_line l
+    JOIN account_move m on (l.move_id=m.id)
+    LEFT JOIN res_currency c on (l.currency_id=c.id)
+    LEFT JOIN account_move_reconcile partialrec
+        on (l.reconcile_partial_id = partialrec.id)
+    LEFT JOIN account_move_reconcile fullrec on (l.reconcile_id = fullrec.id)
+    LEFT JOIN res_partner p on (l.partner_id=p.id)
+    LEFT JOIN account_invoice i on (m.id =i.move_id)
+    LEFT JOIN account_period per on (per.id=l.period_id)
+    JOIN account_journal j on (l.journal_id=j.id)
+    WHERE l.id in %s"""
+        monster += (" ORDER BY %s" % (order,))
+        try:
+            self.cursor.execute(monster, (tuple(move_line_ids),))
+            res = self.cursor.dictfetchall()
+        except Exception:
+            self.cursor.rollback()
+            raise
+        return res or []
+
 _column_sizes = [
     ('date', 12),
     ('period', 12),
     ('move', 20),
+    ('supp_inv_no', 22),
     ('journal', 12),
     ('account_code', 12),
     ('partner', 30),
@@ -161,6 +229,8 @@ class general_ledger_xls(report_xls):
             ('date', 1, 0, 'text', _('Date'), None, c_hdr_cell_style),
             ('period', 1, 0, 'text', _('Period'), None, c_hdr_cell_style),
             ('move', 1, 0, 'text', _('Entry'), None, c_hdr_cell_style),
+            ('supp_inv_no', 1, 0, 'text', _('Supplier Invoice Number'),
+             None, c_hdr_cell_style),
             ('journal', 1, 0, 'text', _('Journal'), None, c_hdr_cell_style),
             ('account_code', 1, 0, 'text',
              _('Account'), None, c_hdr_cell_style),
@@ -233,6 +303,7 @@ class general_ledger_xls(report_xls):
                                for x in range(7)]
                     c_specs += [
                         ('init_bal', 1, 0, 'text', _('Initial Balance')),
+                        ('counterpart', 1, 0, 'text', None),
                         ('debit', 1, 0, 'number', cumul_debit,
                          None, c_init_cell_style_decimal),
                         ('credit', 1, 0, 'number', cumul_credit,
@@ -277,6 +348,8 @@ class general_ledger_xls(report_xls):
                         ('period', 1, 0, 'text',
                          line.get('period_code') or ''),
                         ('move', 1, 0, 'text', line.get('move_name') or ''),
+                        ('supp_inv_no', 1, 0, 'text',
+                         line.get('supplier_invoice_number') or ''),
                         ('journal', 1, 0, 'text', line.get('jcode') or ''),
                         ('account_code', 1, 0, 'text', account.code),
                         ('partner', 1, 0, 'text',
@@ -305,17 +378,17 @@ class general_ledger_xls(report_xls):
                     row_pos = self.xls_write_row(
                         ws, row_pos, row_data, ll_cell_style)
 
-                debit_start = rowcol_to_cell(row_start, 8)
-                debit_end = rowcol_to_cell(row_pos - 1, 8)
+                debit_start = rowcol_to_cell(row_start, 9)
+                debit_end = rowcol_to_cell(row_pos - 1, 9)
                 debit_formula = 'SUM(' + debit_start + ':' + debit_end + ')'
-                credit_start = rowcol_to_cell(row_start, 9)
-                credit_end = rowcol_to_cell(row_pos - 1, 9)
+                credit_start = rowcol_to_cell(row_start, 10)
+                credit_end = rowcol_to_cell(row_pos - 1, 10)
                 credit_formula = 'SUM(' + credit_start + ':' + credit_end + ')'
-                balance_debit = rowcol_to_cell(row_pos, 8)
-                balance_credit = rowcol_to_cell(row_pos, 9)
+                balance_debit = rowcol_to_cell(row_pos, 9)
+                balance_credit = rowcol_to_cell(row_pos, 10)
                 balance_formula = balance_debit + '-' + balance_credit
                 c_specs = [
-                    ('acc_title', 7, 0, 'text',
+                    ('acc_title', 8, 0, 'text',
                      ' - '.join([account.code, account.name])),
                     ('cum_bal', 1, 0, 'text',
                      _('Cumulated Balance on Account'),
@@ -343,4 +416,4 @@ class general_ledger_xls(report_xls):
 
 general_ledger_xls('report.account.account_report_general_ledger_xls',
                    'account.account',
-                   parser=GeneralLedgerWebkit)
+                   parser=GeneralLedgerWebkitSupplier)
