@@ -195,7 +195,7 @@ class general_ledger_xls(report_xls):
             num_format_str=report_xls.decimal_format)
 
         cnt = 0
-        for account in objects:
+        for account in objects.sorted(key=lambda acc: acc.code):
 
             display_initial_balance = _p['init_balance'][account.id] and \
                 (_p['init_balance'][account.id].get(
