@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-# (C) 2011 Camptocamp SA
-# (C) 2016 Savoir-faire Linux
+# © 2011 Camptocamp SA
+# © 2016 Savoir-faire Linux
 # License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl.html).
 
 from openerp import api, fields, models
