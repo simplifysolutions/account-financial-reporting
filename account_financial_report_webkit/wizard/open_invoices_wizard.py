@@ -31,6 +31,12 @@ class AccountReportOpenInvoicesWizard(orm.TransientModel):
 
     _columns = {
         'group_by_currency': fields.boolean('Group Partner by currency'),
+        'aging_method': fields.selection(
+            [('due_date', 'Due Date'),
+             ('invoice_date', 'Invoice Date')],
+            'Aged from',
+            required=True
+        ),
         'until_date': fields.date(
             "Clearance date",
             required=True,
@@ -44,6 +50,11 @@ By amending the clearance date, you will be, for instance, able to answer the
 question : 'based on my last year end debtors open invoices, which invoices
 are still unpaid today (today is my clearance date)?'
 """)}
+
+    _defaults = {
+        'aging_method': 'due_date',
+    }
+
 
     def _check_until_date(self, cr, uid, ids, context=None):
         def get_key_id(obj, field):
@@ -135,7 +146,9 @@ are still unpaid today (today is my clearance date)?'
         data = super(AccountReportOpenInvoicesWizard, self).pre_print_report(
             cr, uid, ids, data, context=context)
         vals = self.read(cr, uid, ids,
-                         ['until_date', 'group_by_currency'],
+                         ['until_date',
+                             'aging_method',
+                             'group_by_currency'],
                          context=context)[0]
         data['form'].update(vals)
         return data
