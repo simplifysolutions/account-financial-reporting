@@ -145,9 +145,9 @@ class general_ledger_xls(report_xls):
         c_specs = [
             ('coa', 2, 0, 'text', _('Chart of Account')),
             ('fy', 1, 0, 'text', _('Fiscal Year')),
-            ('df', 3, 0, 'text', _p.filter_form(data) ==
+            ('df', 4, 0, 'text', _p.filter_form(data) ==
              'filter_date' and _('Dates Filter') or _('Periods Filter')),
-            ('af', 1, 0, 'text', _('Accounts Filter')),
+            ('af', 2, 0, 'text', _('Accounts Filter')),
             ('tm', 2, 0, 'text', _('Target Moves')),
             ('ib', 2, 0, 'text', _('Initial Balance')),
 
